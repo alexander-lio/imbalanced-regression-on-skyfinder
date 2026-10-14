@@ -1,12 +1,15 @@
 import os
 import logging
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFile
 from scipy.ndimage import convolve1d
 from torch.utils import data
 import torchvision.transforms as transforms
 
 from utils import get_lds_kernel_window
+
+# CHANGED: handle truncated JPEGs from webcam captures
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 print = logging.info
 
@@ -30,7 +33,7 @@ class AgeDB(data.Dataset):
         img = Image.open(os.path.join(self.data_dir, row['path'])).convert('RGB')
         transform = self.get_transform()
         img = transform(img)
-        label = np.asarray([row['age']]).astype('float32')
+        label = np.asarray([row['label']]).astype('float32')  # CHANGED: 'age' -> 'label'
         weight = np.asarray([self.weights[index]]).astype('float32') if self.weights is not None else np.asarray([np.float32(1.)])
 
         return img, label, weight
@@ -52,13 +55,14 @@ class AgeDB(data.Dataset):
             ])
         return transform
 
-    def _prepare_weights(self, reweight, max_target=121, lds=False, lds_kernel='gaussian', lds_ks=5, lds_sigma=2):
+    # CHANGED: max_target 121 -> 81 (label range 0-80 for SkyFinder: temp -30..+50 C)
+    def _prepare_weights(self, reweight, max_target=81, lds=False, lds_kernel='gaussian', lds_ks=5, lds_sigma=2):
         assert reweight in {'none', 'inverse', 'sqrt_inv'}
         assert reweight != 'none' if lds else True, \
             "Set reweight to \'sqrt_inv\' (default) or \'inverse\' when using LDS"
 
         value_dict = {x: 0 for x in range(max_target)}
-        labels = self.df['age'].values
+        labels = self.df['label'].values  # CHANGED: 'age' -> 'label'
         for label in labels:
             value_dict[min(max_target - 1, int(label))] += 1
         if reweight == 'sqrt_inv':

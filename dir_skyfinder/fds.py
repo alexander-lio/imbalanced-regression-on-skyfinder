@@ -19,7 +19,8 @@ class FDS(nn.Module):
         self.feature_dim = feature_dim
         self.bucket_num = bucket_num
         self.bucket_start = bucket_start
-        self.kernel_window = self._get_kernel_window(kernel, ks, sigma)
+        # CHANGED: register as buffer so it moves with .to(device) instead of hardcoding .cuda()
+        self.register_buffer('kernel_window', self._get_kernel_window(kernel, ks, sigma))
         self.half_ks = (ks - 1) // 2
         self.momentum = momentum
         self.start_update = start_update
@@ -49,7 +50,7 @@ class FDS(nn.Module):
             kernel_window = list(map(laplace, np.arange(-half_ks, half_ks + 1))) / sum(map(laplace, np.arange(-half_ks, half_ks + 1)))
 
         print(f'Using FDS: [{kernel.upper()}] ({ks}/{sigma})')
-        return torch.tensor(kernel_window, dtype=torch.float32).cuda()
+        return torch.tensor(kernel_window, dtype=torch.float32)  # CHANGED: removed .cuda(); buffer moves with model
 
     def _update_last_epoch_stats(self):
         self.running_mean_last_epoch = self.running_mean

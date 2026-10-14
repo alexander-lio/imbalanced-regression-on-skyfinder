@@ -65,17 +65,12 @@ def query_yes_no(question):
 
 
 def prepare_folders(args):
+    # CHANGED: use os.makedirs and auto-overwrite (no interactive prompt; safe for Colab/headless)
     folders_util = [args.store_root, os.path.join(args.store_root, args.store_name)]
-    if os.path.exists(folders_util[-1]) and not args.resume and not args.pretrained and not args.evaluate:
-        if query_yes_no('overwrite previous folder: {} ?'.format(folders_util[-1])):
-            shutil.rmtree(folders_util[-1])
-            print(folders_util[-1] + ' removed.')
-        else:
-            raise RuntimeError('Output folder {} already exists'.format(folders_util[-1]))
     for folder in folders_util:
         if not os.path.exists(folder):
             print(f"===> Creating folder: {folder}")
-            os.mkdir(folder)
+            os.makedirs(folder, exist_ok=True)
 
 
 def adjust_learning_rate(optimizer, epoch, args):
