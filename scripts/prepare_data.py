@@ -4,7 +4,8 @@ Build data/skyfinder.csv for DIR training from SkyFinder metadata.
 Cleaning:
   - Drop TempM sentinels (-9999, -999).
   - Drop camera 19834 (text overlay = label leakage).
-  - Flag per-camera outliers (|temp - median| > 4*IQR, IQR floor 5 C).
+  - Drop rows where TempM is NaN.
+  - Flag per-camera outliers (|temp - median| > 3*IQR, IQR floor 5 C).
   - Keep only rows whose image file exists on disk.
 
 Labelling:
@@ -48,7 +49,7 @@ def parse_args():
 
 SENTINEL_VALUES = {-9999, -999}
 DROP_CAMERAS = {19834}
-OUTLIER_IQR_MULT = 4
+OUTLIER_IQR_MULT = 3
 IQR_FLOOR = 5.0
 LABEL_OFFSET = 30
 
@@ -103,6 +104,11 @@ def main():
     print(f"  Dropped TempM sentinels {SENTINEL_VALUES}: "
           f"{n_before - len(df)} rows removed")
 
+    # ── Drop NaN TempM ──────────────────────────────────────────────────────
+    n_before = len(df)
+    df = df[df["TempM"].notna()]
+    print(f"  Dropped NaN TempM: {n_before - len(df)} rows removed")
+
     # ── Keep only rows with images on disk ──────────────────────────────────
     df["path"] = df.apply(
         lambda r: os.path.join(str(r["CamId"]), r["Filename"]), axis=1)
@@ -140,7 +146,7 @@ def main():
         sys.exit(1)
 
     # ── Per-camera outlier flagging ─────────────────────────────────────────
-    print("\nPer-camera outlier detection (|temp - median| > 4 * IQR):")
+    print(f"\nPer-camera outlier detection (|temp - median| > {OUTLIER_IQR_MULT} * IQR):")
     outlier_mask = pd.Series(False, index=df.index)
     for cam, grp in df.groupby("CamId"):
         med = grp["TempM"].median()
@@ -150,10 +156,12 @@ def main():
         is_outlier = (grp["TempM"] - med).abs() > OUTLIER_IQR_MULT * iqr
         n_out = is_outlier.sum()
         if n_out > 0:
-            outlier_temps = grp.loc[is_outlier, "TempM"].values
             print(f"  Camera {cam}: dropping {n_out} outlier(s), "
-                  f"median={med:.1f}, IQR={iqr:.1f}, "
-                  f"outlier temps={outlier_temps}")
+                  f"median={med:.1f}, IQR={iqr:.1f}")
+            for idx in grp.index[is_outlier]:
+                row = df.loc[idx]
+                print(f"    CamId={cam}  Filename={row['Filename']}  "
+                      f"TempM={row['TempM']}")
         outlier_mask |= is_outlier
 
     n_outliers = outlier_mask.sum()

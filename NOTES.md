@@ -6,6 +6,7 @@
   creating label leakage. 1,328 rows removed.
 - **TempM sentinels**: values -9999 and -999 mean "missing" in the SkyFinder
   metadata. 325 rows affected (0.35%). Dropped.
+- **Blank TempM**: 10 rows with NaN TempM dropped (after sentinel removal).
 - **Label encoding**: `label = round(TempM) + 30`. The +30 offset ensures all
   labels are non-negative, which the DIR repo requires (it indexes bins by
   `int(label)`). The shift cancels in MAE, but any printed predictions must be
@@ -17,11 +18,10 @@
 - **Balanced val/test**: from each pool, at most 50 (test) or 25 (val) images
   per 1 degree C bin are sampled. Leftover pool images are discarded (not added
   to train) to keep the evaluation sets balanced.
-- **Per-camera outlier rule**: flag rows where |temp - camera_median| > 4 * IQR.
+- **Per-camera outlier rule**: flag rows where |temp - camera_median| > 3 * IQR.
   IQR floor of 5 degrees C prevents cameras with very narrow ranges from having
-  zero IQR (which would flag everything). With the 3 downloaded cameras, no
-  outliers were found. Camera 10870 (not downloaded) has a 50 degree C reading
-  with a ~9 degree C median — this rule would catch it.
+  zero IQR (which would flag everything). Outlier rule 3xIQR drops 2x 50 C
+  readings on cam 10870 and 1x 33 C on cam 9708.
 - **is_night column**: derived from the metadata `night` score (> 0.5 = night).
   41.5% of images are flagged as night. Kept for now; can be used to filter or
   analyze separately.
