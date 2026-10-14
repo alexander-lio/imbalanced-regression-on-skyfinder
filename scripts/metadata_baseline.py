@@ -43,7 +43,7 @@ def shot_metrics_simple(preds_c, labels_c, train_labels_int, label_offset=30):
         if errs:
             result[name] = {'l1': np.mean(errs), 'gmean': gmean(errs).astype(float), 'n': len(errs)}
         else:
-            result[name] = {'l1': 0.0, 'gmean': 0.0, 'n': 0}
+            result[name] = {'l1': float('nan'), 'gmean': float('nan'), 'n': 0}
     return result
 
 

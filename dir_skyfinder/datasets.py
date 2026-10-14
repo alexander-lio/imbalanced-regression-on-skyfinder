@@ -16,11 +16,13 @@ print = logging.info
 
 class AgeDB(data.Dataset):
     def __init__(self, df, data_dir, img_size, split='train', reweight='none',
-                 lds=False, lds_kernel='gaussian', lds_ks=5, lds_sigma=2):
+                 lds=False, lds_kernel='gaussian', lds_ks=5, lds_sigma=2,
+                 imagenet_norm=False):  # CHANGED: flag for ImageNet normalization
         self.df = df
         self.data_dir = data_dir
         self.img_size = img_size
         self.split = split
+        self.imagenet_norm = imagenet_norm
 
         self.weights = self._prepare_weights(reweight=reweight, lds=lds, lds_kernel=lds_kernel, lds_ks=lds_ks, lds_sigma=lds_sigma)
 
@@ -45,13 +47,13 @@ class AgeDB(data.Dataset):
                 transforms.RandomCrop(self.img_size, padding=16),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize([.5, .5, .5], [.5, .5, .5]),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]) if self.imagenet_norm else transforms.Normalize([.5, .5, .5], [.5, .5, .5]),
             ])
         else:
             transform = transforms.Compose([
                 transforms.Resize((self.img_size, self.img_size)),
                 transforms.ToTensor(),
-                transforms.Normalize([.5, .5, .5], [.5, .5, .5]),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]) if self.imagenet_norm else transforms.Normalize([.5, .5, .5], [.5, .5, .5]),
             ])
         return transform
 

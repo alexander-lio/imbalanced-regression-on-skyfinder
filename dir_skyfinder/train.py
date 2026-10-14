@@ -79,11 +79,20 @@ parser.add_argument('--no_pretrained_imagenet', dest='pretrained_imagenet', acti
                     help='disable ImageNet pretraining')
 parser.add_argument('--subset_frac', type=float, default=1.0,
                     help='fraction of each split to use (for quick smoke tests)')
+parser.add_argument('--seed', type=int, default=0, help='random seed for reproducibility')
 
 parser.set_defaults(augment=True)
 args, unknown = parser.parse_known_args()
 
 args.start_epoch, args.best_loss = 0, 1e5
+
+# CHANGED: set random seeds for reproducibility
+import random
+random.seed(args.seed)
+np.random.seed(args.seed)
+torch.manual_seed(args.seed)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(args.seed)
 
 # CHANGED: device handling — support cuda, mps, cpu (original hard-coded .cuda())
 if args.gpu is not None and torch.cuda.is_available():
@@ -111,9 +120,15 @@ if args.fds:
     args.store_name += f'_{args.start_update}_{args.start_smooth}_{args.fds_mmt}'
 if args.retrain_fc:
     args.store_name += f'_retrain_fc'
-args.store_name = f"{args.dataset}_{args.model}{args.store_name}_{args.optimizer}_{args.loss}_{args.lr}_{args.batch_size}"
+args.store_name = f"{args.dataset}_{args.model}{args.store_name}_{args.optimizer}_{args.loss}_{args.lr}_{args.batch_size}_seed{args.seed}"
 
 prepare_folders(args)
+
+# CHANGED: guard against overwriting a previous run
+_ckpt_path = os.path.join(args.store_root, args.store_name, 'ckpt.best.pth.tar')
+if os.path.exists(_ckpt_path) and not args.resume and not args.evaluate:
+    import sys
+    sys.exit(f"ERROR: {_ckpt_path} already exists. Use --resume to continue or pick a different --store_name.")
 
 logging.root.handlers = []
 logging.basicConfig(
@@ -157,9 +172,12 @@ def main():
     train_labels = df_train['label']  # CHANGED: 'age' -> 'label'
 
     train_dataset = AgeDB(data_dir=args.data_dir, df=df_train, img_size=args.img_size, split='train',
-                          reweight=args.reweight, lds=args.lds, lds_kernel=args.lds_kernel, lds_ks=args.lds_ks, lds_sigma=args.lds_sigma)
-    val_dataset = AgeDB(data_dir=args.data_dir, df=df_val, img_size=args.img_size, split='val')
-    test_dataset = AgeDB(data_dir=args.data_dir, df=df_test, img_size=args.img_size, split='test')
+                          reweight=args.reweight, lds=args.lds, lds_kernel=args.lds_kernel, lds_ks=args.lds_ks, lds_sigma=args.lds_sigma,
+                          imagenet_norm=args.pretrained_imagenet)
+    val_dataset = AgeDB(data_dir=args.data_dir, df=df_val, img_size=args.img_size, split='val',
+                        imagenet_norm=args.pretrained_imagenet)
+    test_dataset = AgeDB(data_dir=args.data_dir, df=df_test, img_size=args.img_size, split='test',
+                         imagenet_norm=args.pretrained_imagenet)
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,
                               num_workers=args.workers, pin_memory=(device.type == 'cuda'), drop_last=False)
@@ -415,9 +433,9 @@ def validate(val_loader, model, train_labels=None, prefix='Val', df_eval=None):
         # CHANGED: temperature-range group metrics (<-10 C, -10..35 C, >35 C)
         temp_range_metrics(preds_flat, labels_flat, prefix)
 
-        # CHANGED: save test predictions to CSV
+        # CHANGED: save test predictions to CSV + metrics JSON
         if prefix == 'Test' and df_eval is not None:
-            save_test_predictions(preds_flat, labels_flat, df_eval)
+            save_test_predictions(preds_flat, labels_flat, df_eval, shot_dict)
 
     return losses_mse.avg, losses_l1.avg, loss_gmean
 
@@ -444,18 +462,64 @@ def temp_range_metrics(preds, labels, prefix='Val'):
     print(f" * {prefix} temp-range: " + " | ".join(parts))
 
 
-# CHANGED: new function — save per-image test predictions
-def save_test_predictions(preds, labels, df_eval):
-    """Save test predictions to results/<store_name>/test_preds.csv."""
-    results_dir = os.path.join('results', args.store_name)
-    os.makedirs(results_dir, exist_ok=True)
-    out_path = os.path.join(results_dir, 'test_preds.csv')
+# CHANGED: new function — save per-image test predictions + metrics JSON
+def save_test_predictions(preds, labels, df_eval, shot_dict):
+    """Save test predictions to {store_root}/{store_name}/test_preds.csv and test_metrics.json."""
+    import json
 
+    results_dir = os.path.join(args.store_root, args.store_name)
+    os.makedirs(results_dir, exist_ok=True)
+
+    # Save CSV
+    out_path = os.path.join(results_dir, 'test_preds.csv')
     df_out = df_eval[['path', 'CamId', 'is_night']].copy().reset_index(drop=True)
     df_out['true_temp_c'] = labels.flatten() - LABEL_OFFSET
     df_out['pred_temp_c'] = preds.flatten() - LABEL_OFFSET
     df_out.to_csv(out_path, index=False)
     print(f"===> Test predictions saved to {out_path} ({len(df_out)} rows)")
+
+    # Compute temp-range metrics
+    preds_c = preds - LABEL_OFFSET
+    labels_c = labels - LABEL_OFFSET
+    temp_range = {}
+    for key, rname, mask in [
+        ('lt_neg10', '< -10 C', labels_c < -10),
+        ('neg10_to_35', '-10..35 C', (labels_c >= -10) & (labels_c <= 35)),
+        ('gt_35', '> 35 C', labels_c > 35),
+    ]:
+        n = int(mask.sum())
+        if n > 0:
+            temp_range[key] = {'mae': float(np.mean(np.abs(preds_c[mask] - labels_c[mask]))), 'n': n}
+        else:
+            temp_range[key] = {'mae': float('nan'), 'n': 0}
+
+    # Overall metrics
+    overall_mae = float(np.mean(np.abs(preds - labels)))
+    overall_mse = float(np.mean((preds - labels) ** 2))
+    overall_gmean = float(gmean(np.abs(preds - labels) + 1e-8, axis=None))
+
+    metrics = {
+        'overall': {'mae': overall_mae, 'mse': overall_mse, 'gmean': overall_gmean},
+        'many': {'mae': shot_dict['many']['l1'], 'gmean': shot_dict['many']['gmean'], 'n': int(sum(1 for _ in []))},
+        'median': {'mae': shot_dict['median']['l1'], 'gmean': shot_dict['median']['gmean']},
+        'low': {'mae': shot_dict['low']['l1'], 'gmean': shot_dict['low']['gmean']},
+        'temp_range': temp_range,
+    }
+    # Add n counts from shot_dict if available
+    for name in ['many', 'median', 'low']:
+        metrics[name] = {'mae': shot_dict[name]['l1'], 'gmean': shot_dict[name]['gmean']}
+
+    def _sanitize_nans(obj):
+        if isinstance(obj, dict):
+            return {k: _sanitize_nans(v) for k, v in obj.items()}
+        if isinstance(obj, float) and np.isnan(obj):
+            return None
+        return obj
+
+    json_path = os.path.join(results_dir, 'test_metrics.json')
+    with open(json_path, 'w') as f:
+        json.dump(_sanitize_nans(metrics), f, indent=2)
+    print(f"===> Test metrics saved to {json_path}")
 
 
 def shot_metrics(preds, labels, train_labels, many_shot_thr=100, low_shot_thr=20):
@@ -512,9 +576,9 @@ def shot_metrics(preds, labels, train_labels, many_shot_thr=100, low_shot_thr=20
             shot_dict[name]['l1'] = np.sum(l1_list) / np.sum(cnt_list)
             shot_dict[name]['gmean'] = gmean(np.hstack(gmean_list), axis=None).astype(float) if gmean_list else 0.0
         else:
-            shot_dict[name]['mse'] = 0.0
-            shot_dict[name]['l1'] = 0.0
-            shot_dict[name]['gmean'] = 0.0
+            shot_dict[name]['mse'] = float('nan')
+            shot_dict[name]['l1'] = float('nan')
+            shot_dict[name]['gmean'] = float('nan')
 
     return shot_dict
 
