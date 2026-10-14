@@ -1,0 +1,9 @@
+# Developed with Python 3.14.2
+pandas
+numpy
+matplotlib
+seaborn
+pillow
+scipy
+torch
+torchvision

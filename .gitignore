@@ -1,0 +1,30 @@
+# Images (download via scripts/download_images.py)
+data/images/
+images/
+
+# Metadata CSV (88MB — download via scripts/download_images.py --metadata_only)
+data/*.csv
+
+# Model checkpoints
+*.pth
+*.pth.tar
+checkpoints/
+checkpoint/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+venv/
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
