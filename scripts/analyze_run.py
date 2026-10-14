@@ -115,7 +115,7 @@ def write_stats(df, df_full, out_dir):
         include_groups=False,
     ).sort_values("mae", ascending=False)
     for cam, row in cam_groups.iterrows():
-        lines.append(f"  {cam:>8s}: MAE {row['mae']:.3f}  (n={int(row['n'])})")
+        lines.append(f"  {str(cam):>8s}: MAE {row['mae']:.3f}  (n={int(row['n'])})")
 
     with open(os.path.join(out_dir, "stats.txt"), "w") as f:
         f.write("\n".join(lines) + "\n")
@@ -165,7 +165,7 @@ def plot_error_by_bin(df, df_full, out_dir):
 
     lo = int(np.floor(min(true.min(), train_temp_c.min())))
     hi = int(np.ceil(max(true.max(), train_temp_c.max())))
-    bin_edges = np.arange(lo, hi + 2, 1)
+    bin_edges = np.arange(lo, hi + 2, 1) - 0.5
     bin_centers = bin_edges[:-1] + 0.5
 
     # train counts per bin
