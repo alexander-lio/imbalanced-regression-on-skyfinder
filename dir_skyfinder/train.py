@@ -18,7 +18,7 @@ from utils import *
 import os
 os.environ["KMP_WARNINGS"] = "FALSE"
 
-# CHANGED: label offset constant — predictions are in label-space; subtract to get C
+# CHANGED: label offset constant: predictions are in label-space; subtract to get C
 LABEL_OFFSET = 30
 
 
@@ -94,7 +94,7 @@ torch.manual_seed(args.seed)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(args.seed)
 
-# CHANGED: device handling — support cuda, mps, cpu (original hard-coded .cuda())
+# CHANGED: device handling: support cuda, mps, cpu (original hard-coded .cuda())
 if args.gpu is not None and torch.cuda.is_available():
     device = torch.device(f'cuda:{args.gpu}')
 elif torch.cuda.is_available():
@@ -204,7 +204,7 @@ def main():
         model_keys = set(model.state_dict().keys())
         repo_state = {}
         for k, v in tv_state.items():
-            # torchvision uses 'fc', repo uses 'linear' — skip both since sizes differ
+            # torchvision uses 'fc', repo uses 'linear': skip both since sizes differ
             if k.startswith('fc.'):
                 skipped.append(k)
                 continue
@@ -440,7 +440,7 @@ def validate(val_loader, model, train_labels=None, prefix='Val', df_eval=None):
     return losses_mse.avg, losses_l1.avg, loss_gmean
 
 
-# CHANGED: new function — MAE by temperature range
+# CHANGED: new function: MAE by temperature range
 def temp_range_metrics(preds, labels, prefix='Val'):
     """Report MAE for three temperature ranges: <-10 C, -10..35 C, >35 C."""
     # Convert from label-space to C
@@ -462,7 +462,7 @@ def temp_range_metrics(preds, labels, prefix='Val'):
     print(f" * {prefix} temp-range: " + " | ".join(parts))
 
 
-# CHANGED: new function — save per-image test predictions + metrics JSON
+# CHANGED: new function: save per-image test predictions + metrics JSON
 def save_test_predictions(preds, labels, df_eval, shot_dict):
     """Save test predictions to {store_root}/{store_name}/test_preds.csv and test_metrics.json."""
     import json

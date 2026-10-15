@@ -39,8 +39,7 @@ def load_data(args):
     return df_pred, df_full
 
 
-# ── 1. pred_vs_true.png ─────────────────────────────────────────────────────
-
+# 1. pred_vs_true.png
 def plot_pred_vs_true(df, out_dir):
     true = df["true_temp_c"].values
     pred = df["pred_temp_c"].values
@@ -73,8 +72,7 @@ def plot_pred_vs_true(df, out_dir):
     plt.close(fig)
 
 
-# ── 2. stats.txt ─────────────────────────────────────────────────────────────
-
+# 2. stats.txt
 def write_stats(df, df_full, out_dir):
     true = df["true_temp_c"].values
     pred = df["pred_temp_c"].values
@@ -121,8 +119,7 @@ def write_stats(df, df_full, out_dir):
         f.write("\n".join(lines) + "\n")
 
 
-# ── 3. worst_20.png ──────────────────────────────────────────────────────────
-
+# 3. worst_20.png
 def plot_worst_20(df, images_dir, out_dir):
     df = df.copy()
     df["abs_error"] = np.abs(df["pred_temp_c"] - df["true_temp_c"])
@@ -153,8 +150,7 @@ def plot_worst_20(df, images_dir, out_dir):
     plt.close(fig)
 
 
-# ── 4. error_by_bin.png ──────────────────────────────────────────────────────
-
+# 4. error_by_bin.png
 def plot_error_by_bin(df, df_full, out_dir):
     true = df["true_temp_c"].values
     pred = df["pred_temp_c"].values
@@ -204,8 +200,7 @@ def plot_error_by_bin(df, df_full, out_dir):
     plt.close(fig)
 
 
-# ── main ─────────────────────────────────────────────────────────────────────
-
+# main
 def main():
     args = parse_args()
     out_dir = os.path.join(args.run_dir, "analysis")

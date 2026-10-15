@@ -88,28 +88,28 @@ def main():
     args = parse_args()
     np.random.seed(args.seed)
 
-    # ── Load ────────────────────────────────────────────────────────────────
+    # Load
     print("Loading CSV...")
     df = pd.read_csv(args.metadata)
     print(f"  Raw rows: {len(df)}")
 
-    # ── Drop cameras with label leakage ─────────────────────────────────────
+    # Drop cameras with label leakage
     n_before = len(df)
     df = df[~df["CamId"].isin(DROP_CAMERAS)]
     print(f"  Dropped cameras {DROP_CAMERAS}: {n_before - len(df)} rows removed")
 
-    # ── Drop sentinel TempM ─────────────────────────────────────────────────
+    # Drop sentinel TempM
     n_before = len(df)
     df = df[~df["TempM"].isin(SENTINEL_VALUES)]
     print(f"  Dropped TempM sentinels {SENTINEL_VALUES}: "
           f"{n_before - len(df)} rows removed")
 
-    # ── Drop NaN TempM ──────────────────────────────────────────────────────
+    # Drop NaN TempM
     n_before = len(df)
     df = df[df["TempM"].notna()]
     print(f"  Dropped NaN TempM: {n_before - len(df)} rows removed")
 
-    # ── Keep only rows with images on disk ──────────────────────────────────
+    # Keep only rows with images on disk
     df["path"] = df.apply(
         lambda r: os.path.join(str(r["CamId"]), r["Filename"]), axis=1)
     df["img_exists"] = df["path"].apply(
@@ -129,12 +129,12 @@ def main():
                 if os.path.isdir(os.path.join(args.images_dir, d)) and d.isdigit()
             }
         missing_cams = sorted(all_cams - cams_on_disk)
-        print(f"\n  *** WARNING: only {coverage:.1%} of metadata rows have an "
-              f"image on disk ({n_found}/{n_total}) ***")
-        print(f"  *** Missing cameras ({len(missing_cams)}): "
-              f"{missing_cams} ***")
-        print(f"  *** Run: python scripts/download_images.py "
-              f"--images_dir {args.images_dir} ***\n")
+        print(f"\n  WARNING: only {coverage:.1%} of metadata rows have an "
+              f"image on disk ({n_found}/{n_total})")
+        print(f"   Missing cameras ({len(missing_cams)}): "
+              f"{missing_cams}")
+        print(f"   Run: python scripts/download_images.py "
+              f"--images_dir {args.images_dir} \n")
 
     n_before = len(df)
     df = df[df["img_exists"]].drop(columns=["img_exists"])
@@ -145,7 +145,7 @@ def main():
         print("ERROR: no images found. Check --images_dir.", file=sys.stderr)
         sys.exit(1)
 
-    # ── Per-camera outlier flagging ─────────────────────────────────────────
+    # Per-camera outlier flagging
     print(f"\nPer-camera outlier detection (|temp - median| > {OUTLIER_IQR_MULT} * IQR):")
     outlier_mask = pd.Series(False, index=df.index)
     for cam, grp in df.groupby("CamId"):
@@ -169,18 +169,18 @@ def main():
     print(f"  Total outliers dropped: {n_outliers}")
     print(f"  Remaining rows: {len(df)}")
 
-    # ── is_night flag ───────────────────────────────────────────────────────
+    # is_night flag
     df["is_night"] = (df["night"] > 0.5).astype(int)
     print(f"\nNight images: {df['is_night'].sum()} / {len(df)} "
           f"({100 * df['is_night'].mean():.1f}%)")
 
-    # ── Label construction ──────────────────────────────────────────────────
+    # Label construction
     df["temp_c"] = df["TempM"].round(0).astype(int)
     df["label"] = df["temp_c"] + LABEL_OFFSET
     print(f"\nLabel range: {df['label'].min()} to {df['label'].max()} "
           f"(temp_c: {df['temp_c'].min()} to {df['temp_c'].max()})")
 
-    # ── Time-based split ────────────────────────────────────────────────────
+    # Time-based split
     df["week"] = df["Filename"].apply(filename_to_week)
     df["split"] = df["week"].apply(assign_pool)
     print(f"\nPool assignment (before balancing):")
@@ -188,7 +188,7 @@ def main():
     print(f"  test_pool: {(df['split'] == 'test_pool').sum()}")
     print(f"  val_pool:  {(df['split'] == 'val_pool').sum()}")
 
-    # ── Balanced test/val sampling ──────────────────────────────────────────
+    # Balanced test/val sampling
     print("\nBalanced sampling:")
     train_df = df[df["split"] == "train"].copy()
     train_df["split"] = "train"
@@ -201,11 +201,11 @@ def main():
         df[df["split"] == "val_pool"], args.val_per_bin, "val", args.seed)
     val_df["split"] = "val"
 
-    # ── Combine and save ────────────────────────────────────────────────────
+    # Combine and save
     out = pd.concat([train_df, val_df, test_df], ignore_index=True)
     out = out[["path", "label", "temp_c", "split", "CamId", "is_night"]]
 
-    # ── Summary ─────────────────────────────────────────────────────────────
+    # Summary
     print("\n" + "=" * 60)
     print("FINAL SPLIT SIZES")
     print("=" * 60)
@@ -240,7 +240,7 @@ def main():
     print(f"\nSaved to {args.out}")
     print(f"Total rows: {len(out)}")
 
-    # ── Histogram figure ────────────────────────────────────────────────────
+    # Histogram figure
     try:
         import matplotlib
         matplotlib.use("Agg")

@@ -29,12 +29,12 @@ def main():
     import os
     os.makedirs(args.fig_dir, exist_ok=True)
 
-    # ── Load ────────────────────────────────────────────────────────────────
+    # Load
     df = pd.read_csv(args.metadata)
     print(f"Shape: {df.shape}")
     print(f"\nColumns:\n{list(df.columns)}\n")
 
-    # ── Temperature columns ─────────────────────────────────────────────────
+    # Temperature columns
     for col in ["TempM", "TempI"]:
         raw = df[col]
         missing_sentinel = raw.isin([-9999, -9999.0, -999, -999.0]).sum()
@@ -53,14 +53,14 @@ def main():
     print(f"Usable rows (valid temp_c): {valid_mask.sum()} / {len(df)} "
           f"({valid_mask.mean()*100:.1f}%)\n")
 
-    # ── Camera summary ──────────────────────────────────────────────────────
+    # Camera summary
     n_cams = df["CamId"].nunique()
     print(f"Number of unique cameras: {n_cams}")
     cam_counts = df["CamId"].value_counts()
     print(f"Images per camera: min={cam_counts.min()}, max={cam_counts.max()}, "
           f"median={cam_counts.median():.0f}\n")
 
-    # ── Weather condition counts ────────────────────────────────────────────
+    # Weather condition counts
     if "Conds" in df.columns:
         print("Weather conditions (top 15):")
         print(df["Conds"].value_counts().head(15).to_string())
@@ -72,7 +72,7 @@ def main():
                   f"({df[flag].mean()*100:.1f}%)")
     print()
 
-    # ── Plot 1: Overall temperature histogram ──────────────────────────────
+    # Plot 1: Overall temperature histogram
     fig, ax = plt.subplots(figsize=(10, 5))
     temps = df.loc[valid_mask, "temp_c"]
     ax.hist(temps, bins=80, color="steelblue", edgecolor="white", linewidth=0.3)
@@ -87,7 +87,7 @@ def main():
     fig.savefig(path1, dpi=150)
     print(f"Saved: {path1}")
 
-    # ── Plot 2: Temperature range per camera (box plot) ─────────────────────
+    # Plot 2: Temperature range per camera (box plot)
     df_valid = df.loc[valid_mask].copy()
     cam_order = (df_valid.groupby("CamId")["temp_c"]
                  .median().sort_values().index.astype(str))

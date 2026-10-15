@@ -108,7 +108,7 @@ def resize_directory(cam_dir, short_side):
 def main():
     args = parse_args()
 
-    # ── Metadata ────────────────────────────────────────────────────────────
+    # Metadata
     if not download_metadata(args.metadata):
         print("ERROR: could not download metadata.", file=sys.stderr)
         sys.exit(1)
@@ -117,7 +117,7 @@ def main():
         print("Done (metadata only).")
         return
 
-    # ── Camera images ───────────────────────────────────────────────────────
+    # Camera images
     cam_ids = get_camera_ids(args.metadata)
     print(f"\n{len(cam_ids)} cameras found in metadata.")
     os.makedirs(args.images_dir, exist_ok=True)
@@ -183,7 +183,7 @@ def main():
             if os.path.exists(zip_path):
                 os.remove(zip_path)
 
-    # ── Summary table ───────────────────────────────────────────────────────
+    # Summary table
     print(f"\n{'='*55}")
     print(f"{'CamId':>8}  {'Status':>12}  {'On Disk':>8}  {'Metadata':>8}")
     print(f"{'-'*55}")
