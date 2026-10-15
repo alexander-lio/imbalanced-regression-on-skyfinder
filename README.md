@@ -179,3 +179,21 @@ the figure scripts read it so they can run without the image data.
 - Y. Yang, K. Zha, Y.-C. Chen, H. Wang, D. Katabi. Delving into Deep Imbalanced Regression. ICML 2021.
   Code: https://github.com/YyzHarry/imbalanced-regression
 - R. P. Mihail, S. Workman, Z. Bessinger, N. Jacobs. Sky Segmentation in the Wild: An Empirical Study. WACV 2016.
+
+If you use this code, please cite the original DIR paper and the SkyFinder dataset:
+
+```bibtex
+@inproceedings{yang2021delving,
+  title={Delving into Deep Imbalanced Regression},
+  author={Yang, Yuzhe and Zha, Kaiwen and Chen, Ying-Cong and Wang, Hao and Katabi, Dina},
+  booktitle={International Conference on Machine Learning (ICML)},
+  year={2021}
+}
+
+@inproceedings{mihail2016sky,
+  title={Sky Segmentation in the Wild: An Empirical Study},
+  author={Mihail, Radu P. and Workman, Scott and Bessinger, Zach and Jacobs, Nathan},
+  booktitle={IEEE Winter Conference on Applications of Computer Vision (WACV)},
+  year={2016}
+}
+```
